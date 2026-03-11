@@ -1,9 +1,16 @@
+
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chaos Tank - Bounce & Shield Update</title>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+    const socket = io();
+    <script>   
     <style>
         body { margin: 0; padding: 0; background: #0d0d0d; color: #eee; font-family: 'Segoe UI', monospace; display: flex; height: 100vh; overflow: hidden; }
         
@@ -386,6 +393,34 @@ class Tank {
         let muzzleX = this.x + Math.cos(this.angle)*(this.size*0.6); 
         let muzzleY = this.y + Math.sin(this.angle)*(this.size*0.6);
 
+	// KIỂM TRA NẾU LÀ NGƯỜI CHƠI THÌ GỬI LÊN SERVER
+    	if (typeof socket !== 'undefined' && !this.isBot) {
+        // Gửi tín hiệu bắn lên server thay vì tự tạo đạn
+        socket.emit('playerShoot', {
+            x: muzzleX,
+            y: muzzleY,
+            angle: this.angle,
+            type: this.weapon,
+            originX: this.x, // Cần thêm cái này cho đạn BOUNCE
+            originY: this.y
+        });
+
+        // Vẫn giữ lại logic cooldown và recoil (giật súng) để máy mình mượt
+        if (this.weapon === 'HEAVY') {
+            this.cooldown = 120; this.weapon = 'NORMAL';
+            let recoilForce = 8;
+            this.recoilX -= Math.cos(this.angle) * recoilForce;
+            this.recoilY -= Math.sin(this.angle) * recoilForce;
+        } else if (this.weapon === 'BOUNCE') {
+            this.cooldown = 40;
+        } else if (this.weapon === 'LASER') {
+            this.cooldown = 50; this.weapon = 'NORMAL';
+        } else {
+            this.cooldown = 20;
+        }
+    } else {
+        
+		
         if (this.weapon === 'BOUNCE') {
             // Bắn 2 bên hông (3 trái, 3 phải)
             // Tính toán vector vuông góc với hướng xe
@@ -438,7 +473,6 @@ class Tank {
             this.cooldown = this.isBot ? 60 : 20;
         }
     }
-}
 
 class Bullet {
     constructor(x, y, angle, type, owner) {
@@ -996,8 +1030,23 @@ function draw() {
     }
 }
 
-function loop() { update(); draw(); requestAnimationFrame(loop); }
+function loop() { 
+    update(); 
+    
+    // Gửi vị trí của mình lên server
+    if(typeof socket !== 'undefined' && player) {
+        socket.emit('playerMovement', {
+            x: player.x,
+            y: player.y,
+            angle: player.angle
+        });
+    }
 
+    draw(); 
+    requestAnimationFrame(loop); 
+} // Đóng ngoặc hàm loop ở đây
+
+// Các sự kiện điều khiển (Giữ nguyên của bạn)
 window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 canvas.addEventListener('mousemove', e => {
@@ -1006,12 +1055,29 @@ canvas.addEventListener('mousemove', e => {
     mouse.y = e.clientY - r.top;
 });
 canvas.addEventListener('mousedown', () => { 
-    if(gameRunning && player.hp>0 && Date.now() >= actualGameStart) {
+    if(gameRunning && player.hp > 0 && Date.now() >= actualGameStart) {
         player.shoot(); 
     }
 });
 
+// Chạy vòng lặp game
 loop();
+
+// Nhận đạn từ người chơi khác
+if(typeof socket !== 'undefined') {
+    socket.on('bulletFired', (data) => {
+        if (data.ownerId !== socket.id) {
+            bullets.push(new Bullet(data.x, data.y, data.angle, data.type, null));
+        }
+    });
+}
+loop();
+socket.on('bulletFired', (data) => {
+    // Chỉ tạo đạn nếu đó là đạn của người chơi khác gửi tới
+    if (data.ownerId !== socket.id) {
+        bullets.push(new Bullet(data.x, data.y, data.angle, data.type, null));
+    }
+});
 </script>
 </body>
 </html>
