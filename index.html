@@ -170,6 +170,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 let player = null;
 let bots = [];
+let bullets = [];
 let otherPlayers = {};
 let walls = [], bullets = [], items = [], particles = [];
 let gameRunning = false;
@@ -1100,12 +1101,21 @@ loop();
 
 // Nhận đạn từ người chơi khác
 if(typeof socket !== 'undefined') {
-    socket.on('bulletFired', (data) => {
-        if (data.ownerId !== socket.id) {
-            bullets.push(new Bullet(data.x,data.y,data.angle,data.type,{x:data.originX || data.x, y:data.originY || data.y}));
-        }
-    });
+   socket.on('bulletFired', (data) => {
+    if(data.ownerId !== socket.id){
+        bullets.push(
+            new Bullet(
+                data.x,
+                data.y,
+                data.angle,
+                data.type,
+                {x:data.originX || data.x, y:data.originY || data.y}
+            )
+        );
+    }
+});
 }
 </script>
 </body>
 </html>
+
