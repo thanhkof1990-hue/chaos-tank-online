@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -8,9 +6,32 @@
     <title>Chaos Tank - Bounce & Shield Update</title>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script>
-    const socket = io();
-    <script>   
+	<script>
+	const socket = io();
+	// nhận danh sách người chơi hiện tại
+	socket.on('currentPlayers', (players) => {
+
+    for (let id in players) {
+
+        if (id === socket.id) continue;
+
+        otherPlayers[id] = players[id];
+    }
+	});
+	socket.on('newPlayer', (player) => {
+    otherPlayers[player.id] = player;
+	});
+	socket.on('playerMoved', (player) => {
+    if (otherPlayers[player.id]) {
+        otherPlayers[player.id].x = player.x;
+        otherPlayers[player.id].y = player.y;
+        otherPlayers[player.id].angle = player.angle;
+    }
+	});
+	socket.on('playerDisconnected', (id) => {
+    delete otherPlayers[id];
+	});
+	</script>
     <style>
         body { margin: 0; padding: 0; background: #0d0d0d; color: #eee; font-family: 'Segoe UI', monospace; display: flex; height: 100vh; overflow: hidden; }
         
@@ -149,6 +170,7 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 let player = null;
 let bots = [];
+let otherPlayers = {};
 let walls = [], bullets = [], items = [], particles = [];
 let gameRunning = false;
 let keys = {};
@@ -200,6 +222,7 @@ function clearTimers() {
 function startGame(mode) {
     currentMode = mode;
     clearTimers();
+	otherPlayers = {};
     ui.mainMenu.classList.add('hidden');
     ui.gameOver.classList.add('hidden');
     ui.logBox.innerHTML = '';
@@ -473,7 +496,7 @@ class Tank {
             this.cooldown = this.isBot ? 60 : 20;
         }
     }
-
+}
 class Bullet {
     constructor(x, y, angle, type, owner) {
         this.x = x; this.y = y; this.angle = angle; this.type = type; this.owner = owner;
@@ -984,22 +1007,34 @@ function draw() {
         });
     }
 
-    items.forEach(i => i.draw());
-    bullets.forEach(b => b.draw());
-    particles.forEach(p => p.draw()); 
+items.forEach(i => i.draw());
 
-    if(player.hp>0) {
-        player.draw();
-        if(Date.now() < actualGameStart) {
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, player.size, 0, Math.PI*2);
-            ctx.strokeStyle = '#f1c40f';
-            ctx.lineWidth = 3;
-            ctx.stroke();
-        }
-    }
-    bots.forEach(b => { if(b.hp>0) b.draw(); });
+if(player.hp>0) {
+    player.draw();
+}
 
+bots.forEach(b => { if(b.hp>0) b.draw(); });
+
+for (let id in otherPlayers) {
+
+    let p = otherPlayers[id];
+
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.angle);
+
+    ctx.fillStyle = p.color || "cyan";
+    ctx.fillRect(-20, -20, 40, 40);
+
+    ctx.fillStyle = "#999";
+    ctx.fillRect(0, -5, 30, 10);
+
+    ctx.restore();
+}
+
+bullets.forEach(b => b.draw());
+
+particles.forEach(p => p.draw());
     if(window.laserBeam && window.laserBeam.life > 0) {
         let b = window.laserBeam;
         ctx.beginPath();
@@ -1034,7 +1069,7 @@ function loop() {
     update(); 
     
     // Gửi vị trí của mình lên server
-    if(typeof socket !== 'undefined' && player) {
+    if(typeof socket !== 'undefined' && player && player.hp>0) {
         socket.emit('playerMovement', {
             x: player.x,
             y: player.y,
@@ -1067,17 +1102,10 @@ loop();
 if(typeof socket !== 'undefined') {
     socket.on('bulletFired', (data) => {
         if (data.ownerId !== socket.id) {
-            bullets.push(new Bullet(data.x, data.y, data.angle, data.type, null));
+            bullets.push(new Bullet(data.x,data.y,data.angle,data.type,{x:data.originX || data.x, y:data.originY || data.y}));
         }
     });
 }
-loop();
-socket.on('bulletFired', (data) => {
-    // Chỉ tạo đạn nếu đó là đạn của người chơi khác gửi tới
-    if (data.ownerId !== socket.id) {
-        bullets.push(new Bullet(data.x, data.y, data.angle, data.type, null));
-    }
-});
 </script>
 </body>
 </html>
