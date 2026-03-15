@@ -11,6 +11,7 @@
 	let myId = null;
 	socket.on("connect", () => {
     myId = socket.id;
+    console.log("Connected:", myId);
 	});
 	// nhận danh sách người chơi hiện tại
 	socket.on('currentPlayers', (players) => {
@@ -84,13 +85,13 @@
                 <div style="color: #aaa; margin-bottom: 20px;">CHỌN CHẾ ĐỘ</div>
                 <button class="menu-btn btn-solo" onclick="startGame('SOLO')">ĐẤU ĐƠN (1vs1)</button>
                 <button class="menu-btn btn-surv" onclick="startGame('SURVIVAL')">SINH TỒN (Map Rộng)</button>
+				<button class="menu-btn" style="background:#9b59b6"onclick="startGame('ONLINE')">CHƠI ONLINE (PVP)</button>
             </div>
 
             <div id="game-over-screen" class="overlay-screen hidden">
                 <div id="go-title" style="font-size: 40px; font-weight: bold; margin-bottom: 20px; color: #e74c3c">KẾT THÚC</div>
                 <button class="menu-btn btn-restart" onclick="restartGame()">CHƠI LẠI</button>
                 <button class="menu-btn btn-home" onclick="showMainMenu()">VỀ MENU CHÍNH</button>
-				<button class="menu-btn" style="background:#9b59b6"onclick="startGame('ONLINE')">CHƠI ONLINE (PVP)</button>
             </div>
         </div>
 
@@ -228,6 +229,7 @@ function startGame(mode) {
     currentMode = mode;
     clearTimers();
 	otherPlayers = {};
+	socket.emit("requestPlayers");
     ui.mainMenu.classList.add('hidden');
     ui.gameOver.classList.add('hidden');
     ui.logBox.innerHTML = '';
@@ -1126,7 +1128,7 @@ if(typeof socket !== 'undefined') {
                 data.y,
                 data.angle,
                 data.type,
-                {x:data.originX || data.x, y:data.originY || data.y}
+                data.ownerId
             )
         );
     }
