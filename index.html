@@ -8,6 +8,10 @@
     <script src="/socket.io/socket.io.js"></script>
 	<script>
 	const socket = io();
+	let myId = null;
+	socket.on("connect", () => {
+    myId = socket.id;
+	});
 	// nhận danh sách người chơi hiện tại
 	socket.on('currentPlayers', (players) => {
 
@@ -86,6 +90,7 @@
                 <div id="go-title" style="font-size: 40px; font-weight: bold; margin-bottom: 20px; color: #e74c3c">KẾT THÚC</div>
                 <button class="menu-btn btn-restart" onclick="restartGame()">CHƠI LẠI</button>
                 <button class="menu-btn btn-home" onclick="showMainMenu()">VỀ MENU CHÍNH</button>
+				<button class="menu-btn" style="background:#9b59b6"onclick="startGame('ONLINE')">CHƠI ONLINE (PVP)</button>
             </div>
         </div>
 
@@ -237,12 +242,25 @@ function startGame(mode) {
         parseMapAndSpawn(mapStr, 1);
         log("Chế độ SOLO (1vs1)");
     } 
-    else { 
+    else if(mode === 'SURVIVAL') { 
         gridSize = 50; VIEW_TILES = 20; TILE_SIZE = CANVAS_SIZE / VIEW_TILES;
         let mapStr = generateSurvivalMap();
         parseMapAndSpawn(mapStr, 5); 
         log("SINH TỒN: Sống 30s hoặc diệt hết địch!");
     }
+	else if(mode === 'ONLINE') {
+
+    gridSize = 50;
+    VIEW_TILES = 20;
+    TILE_SIZE = CANVAS_SIZE / VIEW_TILES;
+
+    let mapStr = generateSurvivalMap();
+
+    parseMapAndSpawn(mapStr, 0); // KHÔNG spawn bot
+
+    log("ONLINE PVP");
+
+	}
 
     recalcSpeeds();
     gameRunning = true;
@@ -1117,5 +1135,3 @@ if(typeof socket !== 'undefined') {
 </script>
 </body>
 </html>
-
-
