@@ -4,46 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chaos Tank - Bounce & Shield Update</title>
-
     <script src="/socket.io/socket.io.js"></script>
-	<script>
-	const socket = io();
-	let myId = null;
-	socket.on("connect", () => {
-    myId = socket.id;
-    console.log("Connected:", myId);
-	});
-	// nhận danh sách người chơi hiện tại
-	socket.on('currentPlayers', (players) => {
-
-    for (let id in players) {
-
-        if (id === socket.id) continue;
-
-        otherPlayers[id] = players[id];
-    }
-	});
-	socket.on('newPlayer', (player) => {
-    otherPlayers[player.id] = player;
-	});
-	socket.on('playerMoved', (player) => {
-    if (otherPlayers[player.id]) {
-        otherPlayers[player.id].x = player.x;
-        otherPlayers[player.id].y = player.y;
-        otherPlayers[player.id].angle = player.angle;
-    }
-	});
-	socket.on('playerDisconnected', (id) => {
-    delete otherPlayers[id];
-	});
-	</script>
     <style>
         body { margin: 0; padding: 0; background: #0d0d0d; color: #eee; font-family: 'Segoe UI', monospace; display: flex; height: 100vh; overflow: hidden; }
-        
         #game-wrapper { display: flex; width: 100%; height: 100%; }
         #game-container { position: relative; flex: 2; background: #000; display: flex; justify-content: center; align-items: center; border-right: 2px solid #333; }
         canvas { background: #000; box-shadow: 0 0 30px rgba(0,0,0,0.8); cursor: crosshair; max-width: 100%; max-height: 100%; }
-        
         #dashboard { flex: 1; min-width: 250px; padding: 20px; background: #121212; display: flex; flex-direction: column; gap: 15px; z-index: 5; }
         .panel-box { background: #1f1f1f; padding: 12px; border-radius: 6px; border: 1px solid #333; }
         .stat-label { display: flex; justify-content: space-between; font-size: 11px; color: #aaa; margin-bottom: 3px; }
@@ -54,24 +20,15 @@
         #bar-loot { background: linear-gradient(90deg, #f39c12, #f1c40f); }
         #log-box { flex-grow: 1; overflow-y: auto; font-size: 11px; color: #888; border-top: 1px solid #333; padding-top: 5px; font-family: 'Consolas', monospace; }
         .log-entry { margin-bottom: 3px; border-bottom: 1px solid #222; padding-bottom: 2px; }
-
         .overlay-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; transition: opacity 0.3s; }
         .hidden { display: none !important; }
-        
         h1 { font-size: 50px; color: #e74c3c; text-transform: uppercase; margin-bottom: 30px; letter-spacing: 5px; text-shadow: 0 0 20px #c0392b; text-align: center;}
         .menu-btn { padding: 15px 40px; margin: 10px; font-size: 20px; font-weight: bold; color: white; border: none; border-radius: 5px; cursor: pointer; transition: 0.2s; width: 300px; text-align: center; box-shadow: 0 4px 0 rgba(0,0,0,0.3); }
         .menu-btn:active { transform: translateY(4px); box-shadow: none; }
-        
         .btn-solo { background: #3498db; } .btn-solo:hover { background: #2980b9; }
         .btn-surv { background: #e67e22; } .btn-surv:hover { background: #d35400; }
         .btn-restart { background: #27ae60; } .btn-restart:hover { background: #2ecc71; }
         .btn-home { background: #7f8c8d; } .btn-home:hover { background: #95a5a6; }
-
-        @media (max-width: 768px) {
-            #game-wrapper { flex-direction: column; }
-            #dashboard { height: 150px; flex: none; flex-direction: row; flex-wrap: wrap; }
-            #log-box { display: none; }
-        }
     </style>
 </head>
 <body>
@@ -85,7 +42,7 @@
                 <div style="color: #aaa; margin-bottom: 20px;">CHỌN CHẾ ĐỘ</div>
                 <button class="menu-btn btn-solo" onclick="startGame('SOLO')">ĐẤU ĐƠN (1vs1)</button>
                 <button class="menu-btn btn-surv" onclick="startGame('SURVIVAL')">SINH TỒN (Map Rộng)</button>
-				<button class="menu-btn" style="background:#9b59b6" onclick="startGame('ONLINE')">CHƠI ONLINE (PVP)</button>
+                <button class="menu-btn" style="background:#9b59b6" onclick="startGame('ONLINE')">CHƠI ONLINE (PVP)</button>
             </div>
 
             <div id="game-over-screen" class="overlay-screen hidden">
@@ -96,98 +53,54 @@
         </div>
 
         <div id="dashboard">
-            <div style="flex: 1; min-width: 200px;">
-                <h2 style="color: #e74c3c; margin: 0; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 10px;">BẢNG ĐIỀU KHIỂN</h2>
-                <div class="panel-box">
-                    <div style="font-size: 10px; color: #888;">TRẠNG THÁI AI (Gần nhất)</div>
-                    <div id="ai-state" style="font-size: 28px; font-weight: bold; color: #3498db;">ĐỨNG YÊN</div>
-                    <div id="ai-weapon" style="font-size: 13px; color: #ccc;">Vũ khí: NORMAL</div>
-                </div>
+            <h2 style="color: #e74c3c; margin: 0; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 10px;">BẢNG ĐIỀU KHIỂN</h2>
+            <div class="panel-box">
+                <div style="font-size: 10px; color: #888;">TRẠNG THÁI AI</div>
+                <div id="ai-state" style="font-size: 28px; font-weight: bold; color: #3498db;">ĐỨNG YÊN</div>
+                <div id="ai-weapon" style="font-size: 13px; color: #ccc;">Vũ khí: NORMAL</div>
             </div>
-            
-            <div style="flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 10px;">
-                <div class="panel-box">
-                    <div class="stat-label"><span>TẤN CÔNG</span> <span id="score-attack">0</span></div>
-                    <div class="progress-bg" style="margin-bottom: 8px"><div id="bar-attack" class="progress-fill" style="width:0%"></div></div>
-                    <div class="stat-label"><span>TRUY ĐUỔI</span> <span id="score-chase">0</span></div>
-                    <div class="progress-bg" style="margin-bottom: 8px"><div id="bar-chase" class="progress-fill" style="width:0%"></div></div>
-                    <div class="stat-label"><span>NHẶT ĐỒ</span> <span id="score-loot">0</span></div>
-                    <div class="progress-bg"><div id="bar-loot" class="progress-fill" style="width:0%"></div></div>
-                </div>
-                <div class="panel-box" style="display: flex; justify-content: space-between; font-size: 12px;">
-                    <div>Kẻ thù: <span id="val-hp-bot" style="color:#e74c3c">1</span></div>
-                    <div>HP Bạn: <span id="val-hp-player" style="color:#3498db">100</span>%</div>
-                </div>
+            <div class="panel-box">
+                <div class="stat-label"><span>TẤN CÔNG</span> <span id="score-attack">0</span></div>
+                <div class="progress-bg"><div id="bar-attack" class="progress-fill" style="width:0%"></div></div>
+                <div class="stat-label"><span>TRUY ĐUỔI</span> <span id="score-chase">0</span></div>
+                <div class="progress-bg"><div id="bar-chase" class="progress-fill" style="width:0%"></div></div>
+                <div class="stat-label"><span>NHẶT ĐỒ</span> <span id="score-loot">0</span></div>
+                <div class="progress-bg"><div id="bar-loot" class="progress-fill" style="width:0%"></div></div>
+            </div>
+            <div class="panel-box" style="display: flex; justify-content: space-between; font-size: 12px;">
+                <div>Kẻ thù: <span id="val-hp-bot" style="color:#e74c3c">1</span></div>
+                <div>HP Bạn: <span id="val-hp-player" style="color:#3498db">100</span>%</div>
             </div>
             <div id="log-box"></div>
         </div>
     </div>
 
 <script>
+// --- KHỞI TẠO SOCKET ---
+const socket = (typeof io !== 'undefined') ? io() : { on:()=>{}, emit:()=>{} };
+let myId = null;
+socket.on("connect", () => { myId = socket.id; console.log("Connected:", myId); });
+
 // --- CẤU HÌNH ---
 const CANVAS_SIZE = 600;
 let TILE_SIZE = 40; 
 let VIEW_TILES = 15;
-
-const HEAVY_SPEED = 8.0; 
-const NORMAL_SPEED = 8.0; 
+const HEAVY_SPEED = 5.0; 
+const NORMAL_SPEED = 7.0; 
 const LASER_SPEED = 12.0;
 const LASER_COLOR = '#00ffff';
 let PLAYER_SPEED, BOT_SPEED;
+const START_DELAY = 2000;
 
-const START_DELAY = 3000; 
+const SOLO_MAPS = ["010000000110000010110000110000010110000000000010000000001000010000000001000010100110001000000100110001000000100000001000000100000001010000100000001010000100000000010000100000000010000000110000010000000110000010000000000000010"];
 
-const SOLO_MAPS = [
-    "010000000110000010110000110000010110000000000010000000001000010000000001000010100110001000000100110001000000100000001000000100000001010000100000001010000100000000010000100000000010000000110000010000000110000010000000000000010",
-    "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
-];
-
-// --- LOAD IMAGES ---
-const sprites = {
-    blue: {},
-    red: {}
-};
-// Tải ảnh tank: 0=Normal, 1=Laser, 2=Bounce, 3=Heavy
-[0, 1, 2, 3].forEach(i => {
-    sprites.blue[i] = new Image(); sprites.blue[i].src = `blue_${i}.png`;
-    sprites.red[i] = new Image(); sprites.red[i].src = `red_${i}.png`;
-});
-
-// TẢI ẢNH TEXTURE
-const wallImage = new Image();
-wallImage.src = 'wall.png'; 
-const backgroundImage = new Image();
-backgroundImage.src = 'background.png'; 
-
-function generateSurvivalMap() {
-    let map = "";
-    let size = 50;
-    for(let i=0; i<size*size; i++) {
-        let x = i % size;
-        let y = Math.floor(i / size);
-        if(x===0 || x===size-1 || y===0 || y===size-1) map += "1";
-        else if(Math.random() < 0.08) map += "1";
-        else map += "0";
-    }
-    return map;
-}
-
+// --- BIẾN TOÀN CỤC ---
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-let player = null;
-let bots = [];
-let otherPlayers = {};
-let walls = [], bullets = [], items = [], particles = [];
-let gameRunning = false;
-let keys = {};
-let mouse = {x: 0, y: 0};
-let gridMap = [];
+let player = null, bots = [], otherPlayers = {}, walls = [], bullets = [], items = [], particles = [];
+let gameRunning = false, keys = {}, mouse = {x: 0, y: 0}, gridMap = [], gridSize = 15;
+let camera = {x: 0, y: 0}, currentMode = 'SOLO', actualGameStart = 0, laserBeam = null;
 let spawnIntervalId = null;
-let gameOverTimeout = null;
-let gridSize = 15; 
-let camera = {x: 0, y: 0}; 
-let currentMode = 'SOLO';
-let actualGameStart = 0;
 
 const ui = {
     mainMenu: document.getElementById('main-menu'),
@@ -196,438 +109,98 @@ const ui = {
     weapon: document.getElementById('ai-weapon'),
     bars: { attack: document.getElementById('bar-attack'), chase: document.getElementById('bar-chase'), loot: document.getElementById('bar-loot') },
     logBox: document.getElementById('log-box'),
-    goTitle: document.getElementById('go-title'),
     hp: { bot: document.getElementById('val-hp-bot'), player: document.getElementById('val-hp-player') }
 };
 
+// --- LOGIC GAME ---
 function log(msg) {
-    const time = new Date().toLocaleTimeString('vi-VN', {hour12: false}).split(' ')[0];
     const div = document.createElement('div');
     div.className = 'log-entry';
-    div.innerText = `[${time}] ${msg}`;
+    div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
     ui.logBox.prepend(div);
-    if(ui.logBox.children.length > 20) ui.logBox.lastChild.remove();
-}
-
-function showMainMenu() {
-    gameRunning = false;
-    clearTimers();
-    ui.gameOver.classList.add('hidden');
-    ui.mainMenu.classList.remove('hidden');
-}
-
-function restartGame() { startGame(currentMode); }
-
-function clearTimers() {
-    if(spawnIntervalId) clearInterval(spawnIntervalId);
-    if(gameOverTimeout) clearTimeout(gameOverTimeout);
-    spawnIntervalId = null;
-    gameOverTimeout = null;
-}
-
-function startGame(mode) {
-    currentMode = mode;
-    clearTimers();
-	otherPlayers = {};
-	if(mode === 'ONLINE'){
-	socket.emit("requestPlayers");
-	}
-    ui.mainMenu.classList.add('hidden');
-    ui.gameOver.classList.add('hidden');
-    ui.logBox.innerHTML = '';
-    
-    bots = []; 
-    bullets = []; items = []; particles = []; window.laserBeam = null;
-
-    if(mode === 'SOLO') {
-        gridSize = 15; VIEW_TILES = 15; TILE_SIZE = CANVAS_SIZE / VIEW_TILES; 
-        camera.x = 0; camera.y = 0;
-        let mapStr = SOLO_MAPS[Math.floor(Math.random() * SOLO_MAPS.length)];
-        parseMapAndSpawn(mapStr, 1);
-        log("Chế độ SOLO (1vs1)");
-    } 
-    else if(mode === 'SURVIVAL') { 
-        gridSize = 50; VIEW_TILES = 20; TILE_SIZE = CANVAS_SIZE / VIEW_TILES;
-        let mapStr = generateSurvivalMap();
-        parseMapAndSpawn(mapStr, 5); 
-        log("SINH TỒN: Sống 30s hoặc diệt hết địch!");
-    }
-	else if(mode === 'ONLINE') {
-
-    gridSize = 50;
-    VIEW_TILES = 20;
-    TILE_SIZE = CANVAS_SIZE / VIEW_TILES;
-
-    let mapStr = generateSurvivalMap();
-
-    parseMapAndSpawn(mapStr, 0); // KHÔNG spawn bot
-	socket.emit("newPlayer", {
-    x: player.x,
-    y: player.y,
-    angle: player.angle
-});
-    log("ONLINE PVP");
-
-	}
-
-    recalcSpeeds();
-    gameRunning = true;
-    actualGameStart = Date.now() + START_DELAY;
-    
-    spawnItem();
-    spawnIntervalId = setInterval(spawnItem, 5000);
-}
-
-function recalcSpeeds() {
-    PLAYER_SPEED = TILE_SIZE * 0.08;
-    if(currentMode === 'SURVIVAL') {
-        BOT_SPEED = PLAYER_SPEED / 2;
-    } else {
-        BOT_SPEED = TILE_SIZE * 0.065;
-    }
-}
-
-function parseMapAndSpawn(mapDataStr, botCount) {
-    walls = [];
-    gridMap = mapDataStr.split('');
-    let validSpawns = [];
-    for(let i=0; i<mapDataStr.length; i++) {
-        let col = i % gridSize;
-        let row = Math.floor(i / gridSize);
-        let char = mapDataStr[i];
-        let x = col * TILE_SIZE;
-        let y = row * TILE_SIZE;
-        if(char === '1') walls.push({x: x, y: y, w: TILE_SIZE, h: TILE_SIZE});
-        else validSpawns.push({x: x + TILE_SIZE/2, y: y + TILE_SIZE/2});
-    }
-    
-    let mapPixelSize = gridSize * TILE_SIZE;
-    let borderThick = 1000;
-    walls.push(
-        {x:-borderThick, y:0, w:borderThick, h:mapPixelSize}, 
-        {x:mapPixelSize, y:0, w:borderThick, h:mapPixelSize}, 
-        {x:0, y:-borderThick, w:mapPixelSize, h:borderThick}, 
-        {x:0, y:mapPixelSize, w:mapPixelSize, h:borderThick}
-    );
-
-    if(validSpawns.length < botCount + 1) { alert("Map lỗi!"); return; }
-    let pIdx = Math.floor(Math.random() * validSpawns.length);
-    let pPos = validSpawns.splice(pIdx, 1)[0];
-    player = new Tank(pPos.x, pPos.y, '#3498db', false);
-
-    for(let i=0; i<botCount; i++) {
-        let bIdx, bPos, dist;
-        let attempts = 0;
-        do {
-            bIdx = Math.floor(Math.random() * validSpawns.length);
-            bPos = validSpawns[bIdx];
-            dist = Math.hypot(bPos.x - player.x, bPos.y - player.y);
-            attempts++;
-        } while(dist < TILE_SIZE * 5 && attempts < 50); 
-        bots.push(new Tank(bPos.x, bPos.y, '#e74c3c', true));
-    }
-}
-
-function updateCamera() {
-    if(currentMode === 'SOLO' || !player) { camera.x = 0; camera.y = 0; return; }
-    let targetX = player.x - CANVAS_SIZE / 2;
-    let targetY = player.y - CANVAS_SIZE / 2;
-    let mapPixelSize = gridSize * TILE_SIZE;
-    targetX = Math.max(0, Math.min(targetX, mapPixelSize - CANVAS_SIZE));
-    targetY = Math.max(0, Math.min(targetY, mapPixelSize - CANVAS_SIZE));
-    camera.x = targetX; camera.y = targetY;
-}
-
-class Particle {
-    constructor(x, y, color) {
-        this.x = x; this.y = y; this.color = color;
-        this.size = Math.random() * TILE_SIZE * 0.4 + 2; 
-        let angle = Math.random() * Math.PI * 2;
-        let speed = Math.random() * 4 + 2; 
-        this.vx = Math.cos(angle) * speed;
-        this.vy = Math.sin(angle) * speed;
-        this.life = 1.0; 
-        this.decay = Math.random() * 0.02 + 0.01;
-    }
-    update() {
-        this.x += this.vx; this.y += this.vy;
-        this.life -= this.decay;
-        this.size *= 0.95; 
-    }
-    draw() {
-        ctx.save();
-        ctx.globalAlpha = this.life;
-        ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.size, this.size);
-        ctx.restore();
-    }
-}
-
-function createExplosion(x, y, color) {
-    for(let i=0; i<40; i++) {
-        particles.push(new Particle(x, y, color));
-        particles.push(new Particle(x, y, '#e67e22')); 
-        particles.push(new Particle(x, y, '#f1c40f')); 
-    }
 }
 
 class Tank {
     constructor(x, y, color, isBot) {
         this.x = x; this.y = y; this.color = color; this.isBot = isBot;
-        this.angle = 0; this.hp = 1; this.weapon = 'NORMAL'; this.cooldown = 0;
-        this.size = TILE_SIZE * 0.9; 
-        this.aiState = 'ĐỨNG YÊN'; this.scores = {attack:0, chase:0, loot:0};
-        this.currentPath = []; this.pathTimer = 0;
+        this.angle = 0; this.hp = 100; this.weapon = 'NORMAL'; this.cooldown = 0;
+        this.size = TILE_SIZE * 0.8; this.hasShield = false;
         this.recoilX = 0; this.recoilY = 0;
-        this.hasShield = false; // Trạng thái khiên
     }
-    
-    updatePhysics() {
-        if(Math.abs(this.recoilX) > 0.1 || Math.abs(this.recoilY) > 0.1) {
-            let nextX = this.x + this.recoilX;
-            let nextY = this.y + this.recoilY;
-            if (!checkWallCollision(nextX, this.y, this.size/2)) this.x = nextX;
-            if (!checkWallCollision(this.x, nextY, this.size/2)) this.y = nextY;
-            this.recoilX *= 0.85; 
-            this.recoilY *= 0.85;
-        }
+    update() {
+        if (this.cooldown > 0) this.cooldown--;
+        this.x += this.recoilX; this.y += this.recoilY;
+        this.recoilX *= 0.8; this.recoilY *= 0.8;
     }
-
     draw() {
-        if(this.hp <= 0) return; 
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
-        
-        // --- VẼ KHIÊN ---
         if (this.hasShield) {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(0, 0, this.size * 0.7, 0, Math.PI * 2);
-            ctx.strokeStyle = '#3498db';
-            ctx.lineWidth = 3;
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#3498db';
-            ctx.stroke();
-            ctx.fillStyle = 'rgba(52, 152, 219, 0.2)';
-            ctx.fill();
-            ctx.restore();
+            ctx.beginPath(); ctx.arc(0, 0, this.size, 0, Math.PI*2);
+            ctx.strokeStyle = '#3498db'; ctx.lineWidth = 2; ctx.stroke();
         }
-        // ----------------
-
-        let spriteSet = this.isBot ? sprites.red : sprites.blue;
-        let imgIndex = 0; 
-        if (this.weapon === 'LASER') imgIndex = 1;
-        else if (this.weapon === 'BOUNCE') imgIndex = 2; // Hình ảnh đạn nảy
-        else if (this.weapon === 'HEAVY') imgIndex = 3;
-
-        let img = spriteSet[imgIndex];
-
-        if (img && img.complete) {
-            ctx.drawImage(img, -this.size/2, -this.size/2, this.size, this.size);
-        } else {
-            ctx.fillStyle = this.color;
-            ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
-            ctx.fillStyle = '#aaa'; 
-            ctx.fillRect(0, -this.size/5, this.size*0.8, this.size*0.4); 
-        }
-
+        ctx.fillStyle = this.color;
+        ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+        ctx.fillStyle = "#333"; ctx.fillRect(0, -2, this.size, 4);
         ctx.restore();
     }
-    
     shoot() {
         if (this.cooldown > 0) return;
+        const muzzleX = this.x + Math.cos(this.angle) * this.size;
+        const muzzleY = this.y + Math.sin(this.angle) * this.size;
         
-        // Vị trí nòng súng cơ bản
-        let muzzleX = this.x + Math.cos(this.angle)*(this.size*0.6); 
-        let muzzleY = this.y + Math.sin(this.angle)*(this.size*0.6);
+        if (currentMode === 'ONLINE' && !this.isBot) {
+            socket.emit('playerShoot', { x: muzzleX, y: muzzleY, angle: this.angle, type: this.weapon });
+        }
 
-	// KIỂM TRA NẾU LÀ NGƯỜI CHƠI THÌ GỬI LÊN SERVER
-    	if (currentMode === 'ONLINE' && !this.isBot) {
-        // Gửi tín hiệu bắn lên server thay vì tự tạo đạn
-        socket.emit('playerShoot', {
-            x: muzzleX,
-            y: muzzleY,
-            angle: this.angle,
-            type: this.weapon,
-            originX: this.x, // Cần thêm cái này cho đạn BOUNCE
-            originY: this.y
-        });
-
-        // Vẫn giữ lại logic cooldown và recoil (giật súng) để máy mình mượt
-        if (this.weapon === 'HEAVY') {
-            this.cooldown = 120; this.weapon = 'NORMAL';
-            let recoilForce = 8;
-            this.recoilX -= Math.cos(this.angle) * recoilForce;
-            this.recoilY -= Math.sin(this.angle) * recoilForce;
-        } else if (this.weapon === 'BOUNCE') {
-            this.cooldown = 40;
-        } else if (this.weapon === 'LASER') {
-            this.cooldown = 50; this.weapon = 'NORMAL';
+        if (this.weapon === 'BOUNCE') {
+            for(let i=-1; i<=1; i+=2) {
+                bullets.push(new Bullet(muzzleX, muzzleY, this.angle + i*0.2, 'BOUNCE', this));
+            }
+            this.cooldown = 30;
+        } else if (this.weapon === 'HEAVY') {
+            for(let i=-2; i<=2; i++) {
+                bullets.push(new Bullet(muzzleX, muzzleY, this.angle + i*0.1, 'HEAVY', this));
+            }
+            this.cooldown = 60; this.weapon = 'NORMAL';
         } else {
+            bullets.push(new Bullet(muzzleX, muzzleY, this.angle, 'NORMAL', this));
             this.cooldown = 20;
         }
-    } else {
-        
-		
-        if (this.weapon === 'BOUNCE') {
-            // Bắn 2 bên hông (3 trái, 3 phải)
-            // Tính toán vector vuông góc với hướng xe
-            let sideX = Math.cos(this.angle + Math.PI/2) * (this.size/3);
-            let sideY = Math.sin(this.angle + Math.PI/2) * (this.size/3);
-
-            // Bắn bên trái (-1) và bên phải (1)
-            [-1, 1].forEach(side => {
-                for(let i=0; i<3; i++) {
-                    // Spread nhỏ cho mỗi cụm đạn
-                    let spread = (i - 1) * 0.15; 
-                    let bAngle = this.angle + spread;
-                    
-                    // Vị trí xuất phát lệch sang 2 bên
-                    let originX = this.x + (side * sideX);
-                    let originY = this.y + (side * sideY);
-                    
-                    if(!checkWallCollision(originX, originY, 2)) {
-                        bullets.push(new Bullet(originX, originY, bAngle, 'BOUNCE', this));
-                    }
-                }
-            });
-
-            this.cooldown = 40; 
-            if(!this.isBot) log("Đạn Nảy x6!");
-
-        } else if (this.weapon === 'HEAVY') {
-            if(checkWallCollision(muzzleX, muzzleY, 2)) return;
-            for(let i=0; i<7; i++) {
-                let spread = (i - 3) * 0.1;
-                let ba = this.angle + spread;
-                bullets.push(new Bullet(muzzleX, muzzleY, ba, 'HEAVY', this));
-            }
-            this.cooldown = 120; this.weapon = 'NORMAL';
-            if(!this.isBot) log("Heavy Shotgun!");
-            let recoilForce = 8;
-            this.recoilX -= Math.cos(this.angle) * recoilForce;
-            this.recoilY -= Math.sin(this.angle) * recoilForce;
-
-        } else if (this.weapon === 'LASER') {
-            if(checkWallCollision(muzzleX, muzzleY, 2)) return;
-            fireBouncingBeam(this);
-            this.cooldown = 50; this.weapon = 'NORMAL';
-            if(!this.isBot) log("Laze Nảy!");
-
-        } else {
-            // NORMAL
-            if(checkWallCollision(muzzleX, muzzleY, 2)) return;
-            bullets.push(new Bullet(muzzleX, muzzleY, this.angle, 'NORMAL', this));
-            this.cooldown = this.isBot ? 60 : 20;
-        }
     }
 }
+
 class Bullet {
     constructor(x, y, angle, type, owner) {
-        this.x = x; this.y = y; this.angle = angle; this.speed = 10; this.type = type; this.owner = owner;
-        
-        // Thiết lập tốc độ
-        if(type==='HEAVY') this.speed=HEAVY_SPEED; 
-        else if(type==='LASER') this.speed=LASER_SPEED; 
-        else this.speed=NORMAL_SPEED; // NORMAL và BOUNCE dùng chung tốc độ
-
-        // Thiết lập kích thước
-        this.size = type==='HEAVY' ? TILE_SIZE*0.3 : TILE_SIZE*0.15;
-        
-        this.vx = Math.cos(angle)*this.speed; 
-        this.vy = Math.sin(angle)*this.speed;
-        this.dead = false; 
-        this.safeTime = 20;
-
-        // Thuộc tính cho đạn nảy
-        this.bouncesLeft = type === 'BOUNCE' ? 36 : 0;
+        this.x = x; this.y = y; this.vx = Math.cos(angle) * (type === 'HEAVY' ? HEAVY_SPEED : NORMAL_SPEED);
+        this.vy = Math.sin(angle) * (type === 'HEAVY' ? HEAVY_SPEED : NORMAL_SPEED);
+        this.type = type; this.owner = owner; this.dead = false; this.bounces = type === 'BOUNCE' ? 3 : 0;
     }
-    
     update() {
-        // Tính vị trí tiếp theo
-        let nextX = this.x + this.vx;
-        let nextY = this.y + this.vy;
-        let r = this.size / 2;
-        let mapLimit = gridSize * TILE_SIZE;
-
-        // Xử lý đạn nảy
-        if (this.type === 'BOUNCE') {
-            let hitX = false, hitY = false;
-
-            // Check va chạm trục X
-            if (nextX < 0 || nextX > mapLimit || checkWallCollision(nextX, this.y, r)) {
-                this.vx = -this.vx;
-                hitX = true;
-            }
-            // Check va chạm trục Y
-            if (nextY < 0 || nextY > mapLimit || checkWallCollision(this.x, nextY, r)) {
-                this.vy = -this.vy;
-                hitY = true;
-            }
-
-            // Nếu có va chạm
-            if (hitX || hitY) {
-                this.bouncesLeft--;
-                if (this.bouncesLeft <= 0) this.dead = true;
-                
-                // Cập nhật vị trí sau khi nảy để tránh dính tường
-                this.x += this.vx;
-                this.y += this.vy;
-            } else {
-                // Không va chạm, đi tiếp
-                this.x = nextX;
-                this.y = nextY;
-            }
-
-        } else {
-            // Đạn thường / Heavy
-            if(nextX<0 || nextX>mapLimit || nextY<0 || nextY>mapLimit || checkWallCollision(nextX, nextY, r)) {
-                this.dead = true;
-            } else { 
-                this.x = nextX; this.y = nextY; 
-            }
+        let nx = this.x + this.vx, ny = this.y + this.vy;
+        if (checkWallCollision(nx, ny, 2)) {
+            if (this.bounces > 0) {
+                this.vx *= -1; this.vy *= -1; this.bounces--;
+            } else this.dead = true;
         }
-
-        if(this.safeTime>0) this.safeTime--;
+        this.x += this.vx; this.y += this.vy;
     }
-
     draw() {
-		
-        ctx.beginPath(); ctx.arc(this.x, this.y, this.size/2, 0, Math.PI*2);
-        if(this.type==='HEAVY') { ctx.fillStyle='#FF4500'; ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.stroke(); }
-        else if (this.type==='BOUNCE') { ctx.fillStyle='#00ff00'; } // Đạn nảy màu xanh lá
-        else ctx.fillStyle='#ff0';
-        ctx.fill();
+        ctx.fillStyle = this.type === 'BOUNCE' ? '#2ecc71' : '#f1c40f';
+        ctx.beginPath(); ctx.arc(this.x, this.y, 4, 0, Math.PI*2); ctx.fill();
     }
 }
-	
+
 class Item {
     constructor(x, y, type) { this.x = x; this.y = y; this.type = type; this.dead = false; }
     draw() {
-        let s = TILE_SIZE * 0.5;
-        
-        if (this.type === 'SHIELD') {
-            ctx.fillStyle = '#3498db'; // Màu khiên
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, s/2, 0, Math.PI*2);
-            ctx.fill();
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            
-            ctx.fillStyle = '#fff'; ctx.font=(s*0.6)+'px Arial'; ctx.textAlign='center';
-            ctx.fillText("S", this.x, this.y + s/4);
-        } else {
-            // Các loại súng
-            ctx.fillStyle = (this.type==='HEAVY')?'#777':(this.type==='BOUNCE'?'#2ecc71':LASER_COLOR);
-            ctx.fillRect(this.x-s/2, this.y-s/2, s, s);
-            ctx.fillStyle = '#fff'; ctx.font=(s*0.8)+'px Arial'; ctx.textAlign='center';
-            ctx.fillText(this.type[0], this.x, this.y + s/3);
-        }
+        ctx.fillStyle = this.type === 'SHIELD' ? '#3498db' : '#e67e22';
+        ctx.fillRect(this.x-10, this.y-10, 20, 20);
     }
 }
 
+// --- HỆ THỐNG MAP & VA CHẠM ---
 function checkWallCollision(x, y, r) {
     for(let w of walls) {
         if(x+r > w.x && x-r < w.x+w.w && y+r > w.y && y-r < w.y+w.h) return true;
@@ -635,517 +208,82 @@ function checkWallCollision(x, y, r) {
     return false;
 }
 
-function checkWallLine(x1, y1, x2, y2) {
-    let steps = Math.ceil(Math.hypot(x2-x1, y2-y1) / (TILE_SIZE/2));
-    for(let i=0; i<=steps; i++) {
-        let t = i/steps;
-        if(checkWallCollision(x1 + (x2-x1)*t, y1 + (y2-y1)*t, 1)) return true;
-    }
-    return false;
-}
-
-function spawnItem() {
-    if(!gameRunning || items.length >= 15) return;
+function startGame(mode) {
+    currentMode = mode;
+    gameRunning = true;
+    ui.mainMenu.classList.add('hidden');
+    ui.gameOver.classList.add('hidden');
     
-    // --- TỈ LỆ XUẤT HIỆN ---
-    // 0 -> 0.4: SHIELD (40%)
-    // 0.4 -> 0.6: HEAVY (20%)
-    // 0.6 -> 0.8: LASER (20%)
-    // 0.8 -> 1.0: BOUNCE (20%)
+    // Khởi tạo player
+    player = new Tank(100, 100, '#3498db', false);
+    walls = []; bullets = []; items = []; bots = [];
     
-    let rand = Math.random();
-    let type = 'SHIELD';
-    if (rand > 0.4) {
-        if (rand < 0.6) type = 'HEAVY';
-        else if (rand < 0.8) type = 'LASER';
-        else type = 'BOUNCE';
-    }
-
-    for(let i=0; i<50; i++) {
-        let ix = (Math.floor(Math.random()*gridSize)*TILE_SIZE) + TILE_SIZE/2;
-        let iy = (Math.floor(Math.random()*gridSize)*TILE_SIZE) + TILE_SIZE/2;
-        if(!checkWallCollision(ix, iy, TILE_SIZE/3)) {
-            items.push(new Item(ix, iy, type)); break;
-        }
-    }
-}
-
-function fireBouncingBeam(shooter) {
-    let maxB = 7, pts = [{x:shooter.x, y:shooter.y}];
-    let ca = shooter.angle, cx = shooter.x, cy = shooter.y;
-    let targets = shooter.isBot ? [player] : bots;
-    let hitSomething = false;
-    let mapLim = gridSize * TILE_SIZE;
-
-    let isSafe = Date.now() < actualGameStart;
-    let isPlayerInvulnerable = (currentMode === 'SOLO' && isSafe);
-
-    for(let b=0; b<=maxB; b++) {
-        let sx = Math.cos(ca)*(TILE_SIZE/5), sy = Math.sin(ca)*(TILE_SIZE/5);
-        let wallHit = false;
-        for(let i=0; i<300; i++) {
-            cx += sx; cy += sy;
-            
-            if (!hitSomething) {
-                for (let t of targets) {
-                    // Check trúng mục tiêu (kể cả khi có khiên thì Laze vẫn tính là trúng để xử lý logic khiên)
-                    if (t.hp > 0 && Math.hypot(cx - t.x, cy - t.y) < player.size) {
-                        
-                        if (t.hasShield) {
-                            t.hasShield = false; // Vỡ khiên
-                            log("Khiên chặn Laze!");
-                            hitSomething = true; // Dừng tia laze tại đây
-                            createExplosion(t.x, t.y, '#3498db'); // Hiệu ứng vỡ khiên
-                            break;
-                        } else if (!(t === player && isPlayerInvulnerable)) {
-                            t.hp = 0; 
-                            log(shooter.isBot ? "Bot dùng Laze hạ bạn!" : "Bạn hạ 1 Bot bằng Laze!");
-                            hitSomething = true;
-                            break; 
-                        }
-                    }
-                }
-            }
-
-            if(b>0 && Math.hypot(cx-shooter.x, cy-shooter.y) < player.size) { 
-                if (shooter.hasShield) {
-                    shooter.hasShield = false;
-                    log("Khiên chặn Laze phản chủ!");
-                    createExplosion(shooter.x, shooter.y, '#3498db');
-                } else if (!(shooter === player && isPlayerInvulnerable)) {
-                    shooter.hp=0; log("Laze phản chủ!"); 
-                }
-            }
-            
-            if(checkWallCollision(cx, cy, 1)) {
-                cx -= sx; cy -= sy;
-                if(checkWallCollision(cx+sx, cy, 1)) ca = Math.PI - ca; else ca = -ca;
-                pts.push({x:cx, y:cy}); wallHit=true; break;
-            }
-            if(cx<=0 || cx>=mapLim || cy<=0 || cy>=mapLim) {
-                cx -= sx; cy -= sy;
-                if(cx<=0 || cx>=mapLim) ca = Math.PI - ca; else ca = -ca;
-                pts.push({x:cx, y:cy}); wallHit=true; break;
-            }
-        }
-        if(!wallHit) { pts.push({x:cx, y:cy}); break; }
-    }
-    window.laserBeam = {path:pts, life:15, color:LASER_COLOR};
-}
-
-// ... (Pathfinder Class giữ nguyên) ...
-class Pathfinder {
-    static findPath(sx, sy, ex, ey) {
-        let startNode = { c: Math.floor(sx/TILE_SIZE), r: Math.floor(sy/TILE_SIZE) };
-        let endNode = { c: Math.floor(ex/TILE_SIZE), r: Math.floor(ey/TILE_SIZE) };
-        if (Pathfinder.isWall(endNode.c, endNode.r)) return [];
-        let maxSearch = (gridSize > 20) ? 500 : 10000;
-        let count = 0;
-        let queue = [startNode];
-        let cameFrom = {};
-        let visited = new Set();
-        let key = function(n) { return n.c + "," + n.r; }; 
-        visited.add(key(startNode));
-        while(queue.length > 0) {
-            count++; if(count > maxSearch) return [];
-            let current = queue.shift();
-            if(current.c === endNode.c && current.r === endNode.r) {
-                let path = [];
-                let currKey = key(endNode);
-                while(currKey !== key(startNode)) {
-                    let node = cameFrom[currKey];
-                    path.unshift({ x: node.curr.c * TILE_SIZE + TILE_SIZE/2, y: node.curr.r * TILE_SIZE + TILE_SIZE/2 });
-                    currKey = key(node.prev);
-                }
-                path.push({ x: endNode.c * TILE_SIZE + TILE_SIZE/2, y: endNode.r * TILE_SIZE + TILE_SIZE/2 });
-                return path;
-            }
-            let neighbors = [{c:current.c, r:current.r-1}, {c:current.c, r:current.r+1}, {c:current.c-1, r:current.r}, {c:current.c+1, r:current.r}];
-            for(let i=0; i<neighbors.length; i++) {
-                let next = neighbors[i];
-                let k = key(next);
-                if(!visited.has(k) && !Pathfinder.isWall(next.c, next.r)) {
-                    visited.add(k); cameFrom[k] = {curr: next, prev: current}; queue.push(next);
-                }
-            }
-        }
-        return [];
-    }
-    static isWall(c, r) {
-        if(c < 0 || c >= gridSize || r < 0 || r >= gridSize) return true;
-        return gridMap[r * gridSize + c] === '1';
-    }
-}
-
-function updateAI(currentBot) {
-    if (currentBot.hp <= 0) return {st: "ĐÃ CHẾT", sAtk:0, sChase:0, sLoot:0};
-
-    let d = Math.hypot(player.x - currentBot.x, player.y - currentBot.y);
-    let sAtk = (1000/(d+1))*30; if(currentBot.weapon==='LASER') sAtk=500;
-    let sChase = d > (TILE_SIZE*8) ? 50 : 20;
-    let sLoot = 0, tItem = null;
-    if(currentBot.weapon==='NORMAL') {
-        let min = 9999;
-        items.forEach(i => { let dist = Math.hypot(i.x-currentBot.x, i.y-currentBot.y); if(dist<min){min=dist; tItem=i;} });
-        if(tItem) sLoot = 100 - (min/5);
-    }
-    let max = Math.max(sAtk, sChase, sLoot);
-    let st = max===sLoot?'NHẶT ĐỒ':(max===sAtk?'TẤN CÔNG':'TRUY ĐUỔI');
+    // Map đơn giản
+    walls.push({x: 300, y: 200, w: 40, h: 200});
     
-    if (currentMode === 'SURVIVAL' && Date.now() < actualGameStart) {
-        st = 'ĐANG CHỜ';
-        return {st, sAtk, sChase, sLoot};
-    }
+    requestAnimationFrame(gameLoop);
+    log("Trận đấu bắt đầu: " + mode);
+}
 
-    let dx=0, dy=0, isDodge=false;
-    bullets.forEach(b => {
-        // AI né đạn Heavy hoặc Bounce (nguy hiểm)
-        if(b.owner !== currentBot && (b.type==='HEAVY' || b.type==='BOUNCE') && Math.hypot(b.x-currentBot.x, b.y-currentBot.y) < TILE_SIZE*2.5) {
-            isDodge=true; st='NÉ ĐẠN';
-            let a = Math.atan2(b.y-currentBot.y, b.x-currentBot.x);
-            dx -= Math.cos(a); dy -= Math.sin(a);
-        }
-    });
-
-    if(isDodge) {
-        let nx=currentBot.x+dx*BOT_SPEED, ny=currentBot.y+dy*BOT_SPEED;
-        if(!checkWallCollision(nx, currentBot.y, currentBot.size/2)) currentBot.x=nx;
-        if(!checkWallCollision(currentBot.x, ny, currentBot.size/2)) currentBot.y=ny;
-    } else {
-        let tx = st==='NHẶT ĐỒ' && tItem ? tItem.x : player.x;
-        let ty = st==='NHẶT ĐỒ' && tItem ? tItem.y : player.y;
-        
-        currentBot.pathTimer++;
-        if(currentBot.pathTimer > 15 + Math.random()*10 || currentBot.currentPath.length === 0) {
-            currentBot.currentPath = Pathfinder.findPath(currentBot.x, currentBot.y, tx, ty);
-            currentBot.pathTimer = 0;
-        }
-        if(currentBot.currentPath.length > 0) {
-            let next = currentBot.currentPath[0];
-            if(Math.hypot(next.x-currentBot.x, next.y-currentBot.y) < 5) currentBot.currentPath.shift();
-            else {
-                let a = Math.atan2(next.y-currentBot.y, next.x-currentBot.x);
-                let nx=currentBot.x+Math.cos(a)*BOT_SPEED, ny=currentBot.y+Math.sin(a)*BOT_SPEED;
-                if(!checkWallCollision(nx, currentBot.y, currentBot.size/2)) currentBot.x=nx;
-                if(!checkWallCollision(currentBot.x, ny, currentBot.size/2)) currentBot.y=ny;
-            }
-        }
-    }
-
-    currentBot.angle = Math.atan2(player.y-currentBot.y, player.x-currentBot.x);
-    if(st==='TẤN CÔNG') {
-        if(currentBot.weapon==='LASER' || !checkWallLine(currentBot.x, currentBot.y, player.x, player.y)) currentBot.shoot();
-        else if (currentBot.weapon === 'BOUNCE') currentBot.shoot(); // Bounce bắn bừa cũng được
-    }
-    return {st, sAtk, sChase, sLoot};
+function gameLoop() {
+    if (!gameRunning) return;
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
 }
 
 function update() {
-    if(!gameRunning || !player) return;
+    // Di chuyển người chơi
+    if (keys['w']) player.y -= 3;
+    if (keys['s']) player.y += 3;
+    if (keys['a']) player.x -= 3;
+    if (keys['d']) player.x += 3;
     
-    let isSafePhase = Date.now() < actualGameStart;
+    player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+    player.update();
 
-    if(player.hp > 0) player.updatePhysics();
-    bots.forEach(b => { if(b.hp>0) b.updatePhysics(); });
-
-    if (player.hp > 0) {
-        let dx=0, dy=0;
-        if(keys['w'] || keys['W'] || keys['ArrowUp']) dy=-1; if(keys['s'] || keys['S'] || keys['ArrowDown']) dy=1; if(keys['a'] || keys['A'] || keys['ArrowLeft']) dx=-1; if(keys['d'] || keys['D'] || keys['ArrowRight']) dx=1;
-        if(dx!=0||dy!=0) {
-            let nx = player.x + dx * PLAYER_SPEED;
-            let ny = player.y + dy * PLAYER_SPEED;
-            if(!checkWallCollision(nx, player.y, player.size/2)) player.x = nx;
-            if(!checkWallCollision(player.x, ny, player.size/2)) player.y = ny;
-        }
-        updateCamera();
-        let aimX = mouse.x + camera.x;
-        let aimY = mouse.y + camera.y;
-        player.angle = Math.atan2(aimY - player.y, aimX - player.x);
-        if(player.cooldown>0) player.cooldown--;
-    }
-
-    let livingBots = bots.filter(b => b.hp > 0);
-    let closestBot = null;
-    let minDist = 99999;
-
-    livingBots.forEach(b => {
-        let status = {st: 'IDLE', sAtk:0, sChase:0, sLoot:0};
-        
-        if(!(currentMode === 'SURVIVAL' && isSafePhase)) {
-            status = updateAI(b);
-            if(b.cooldown>0) b.cooldown--;
-        } else {
-            status.st = "ĐANG CHỜ";
-        }
-
-        let d = Math.hypot(b.x - player.x, b.y - player.y);
-        if(d < minDist) { minDist = d; closestBot = {bot: b, status: status}; }
-    });
-
-    if(closestBot) {
-        ui.state.innerText = closestBot.status.st; 
-        ui.weapon.innerText = closestBot.bot.weapon;
-        ui.bars.attack.style.width = Math.min(100, closestBot.status.sAtk)+'%';
-        ui.bars.chase.style.width = Math.min(100, closestBot.status.sChase)+'%';
-        ui.bars.loot.style.width = Math.min(100, closestBot.status.sLoot)+'%';
-    } else if (livingBots.length === 0) {
-        ui.state.innerText = "ĐÃ DIỆT HẾT";
-        ui.weapon.innerText = "-";
-        ui.bars.attack.style.width = '0%';
-        ui.bars.chase.style.width = '0%';
-        ui.bars.loot.style.width = '0%';
-    }
-    
-    ui.hp.bot.innerText = livingBots.length + (currentMode === 'SURVIVAL' ? "/5" : "/1"); 
-    ui.hp.player.innerText = Math.round(player.hp*100);
-
-    particles.forEach(p => p.update());
-    particles = particles.filter(p => p.life > 0);
-
-    bullets.forEach(b => {
+    // Cập nhật đạn
+    bullets.forEach((b, index) => {
         b.update();
-        if(!b.dead) {
-            let playerInvulnerable = (currentMode === 'SOLO' && isSafePhase);
-            let targets = [player, ...livingBots]; // Gom tất cả mục tiêu lại
-            
-            targets.forEach(t => {
-                if (t.hp > 0 && b.owner !== t && Math.hypot(b.x-t.x, b.y-t.y) < t.size/2 + b.size) {
-                    // Logic xử lý khi trúng đạn
-                    if (t === player && playerInvulnerable) return; // Bỏ qua nếu bất tử
+        if (b.dead) bullets.splice(index, 1);
+    });
 
-                    if (t.hasShield) {
-                        t.hasShield = false; // Vỡ khiên
-                        b.dead = true; // Đạn biến mất
-                        createExplosion(t.x, t.y, '#3498db'); // Hiệu ứng vỡ khiên
-                        if (t === player) log("Khiên đã chặn một đạn!");
-                    } else {
-                        t.hp = 0; // Chết
-                        b.dead = true;
-                    }
-                }
-            });
-
-            if(b.type==='HEAVY' && b.safeTime<=0 && Math.hypot(b.x-b.owner.x, b.y-b.owner.y) < b.owner.size/2+b.size) { 
-                if (b.owner.hasShield) {
-                    b.owner.hasShield = false;
-                    b.dead = true;
-                    createExplosion(b.owner.x, b.owner.y, '#3498db');
-                    log("Khiên chặn đạn nổ lan!");
-                } else if(!(b.owner === player && playerInvulnerable)) {
-                    b.owner.hp=0; 
-                    b.dead=true; 
-                    log("Tự nổ!"); 
-                }
-            }
+    // Check nhặt đồ
+    items.forEach((item, index) => {
+        if (Math.hypot(player.x - item.x, player.y - item.y) < 30) {
+            if (item.type === 'SHIELD') player.hasShield = true;
+            else player.weapon = item.type;
+            items.splice(index, 1);
+            log("Nhặt được: " + item.type);
         }
     });
-    bullets = bullets.filter(b => !b.dead);
-
-    items.forEach(i => {
-        let targets = [player, ...livingBots];
-        targets.forEach(p => {
-            if(p.hp>0 && Math.hypot(i.x-p.x, i.y-p.y) < p.size) {
-                // Logic nhặt đồ
-                if (i.type === 'SHIELD') {
-                    p.hasShield = true;
-                    i.dead = true;
-                    if(!p.isBot) log("Đã nhặt KHIÊN!");
-                } else if (p.weapon === 'NORMAL') { // Chỉ nhặt súng khi đang cầm súng thường
-                    p.weapon=i.type; i.dead=true; 
-                    if(!p.isBot) log("Bạn nhặt " + i.type);
-                }
-            }
-        });
-    });
-    items = items.filter(i => !i.dead);
-
-    if(!gameOverTimeout) {
-        let playerDead = player.hp <= 0;
-        let allBotsDead = livingBots.length === 0;
-
-        if(playerDead && !player.exploded) { createExplosion(player.x, player.y, player.color); player.exploded = true; }
-        bots.forEach(b => {
-            if(b.hp <= 0 && !b.exploded) { createExplosion(b.x, b.y, b.color); b.exploded = true; }
-        });
-
-        if(currentMode === 'SURVIVAL' && !isSafePhase && player.hp > 0) {
-            let elapsed = Date.now() - actualGameStart;
-            if(elapsed >= 30000) {
-                gameRunning = false;
-                ui.gameOver.classList.remove('hidden');
-                ui.goTitle.innerText = "SỐNG SÓT THÀNH CÔNG!";
-                ui.goTitle.style.color = "#f1c40f";
-                return;
-            }
-        }
-
-        let isGameOver = false;
-        let msg = "", color = "";
-
-        if (playerDead) { isGameOver = true; msg = "THẤT BẠI!"; color = "#e74c3c"; }
-        else if (allBotsDead) { isGameOver = true; msg = "CHIẾN THẮNG!"; color = "#2ecc71"; }
-
-        if(isGameOver) {
-            gameOverTimeout = setTimeout(() => {
-                gameRunning = false;
-                ui.gameOver.classList.remove('hidden');
-                ui.goTitle.innerText = msg;
-                ui.goTitle.style.color = color;
-            }, 3000);
-        }
-    }
 }
 
 function draw() {
-    ctx.fillStyle = '#000'; ctx.fillRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
-    if(!player) return; 
-
-    ctx.save();
-    ctx.translate(-camera.x, -camera.y);
-
-    if (backgroundImage && backgroundImage.complete && backgroundImage.naturalWidth > 0) {
-        const bgPattern = ctx.createPattern(backgroundImage, 'repeat');
-        ctx.fillStyle = bgPattern;
-        let mapMax = gridSize * TILE_SIZE;
-        ctx.fillRect(-1000, -1000, mapMax + 2000, mapMax + 2000);
-    } else {
-        ctx.fillStyle = '#1a1a1a';
-        let mapMax = gridSize * TILE_SIZE;
-        ctx.fillRect(-1000, -1000, mapMax + 2000, mapMax + 2000);
-    }
-
-    if (wallImage && wallImage.complete && wallImage.naturalWidth > 0) {
-        const pattern = ctx.createPattern(wallImage, 'repeat');
-        ctx.fillStyle = pattern;
-        ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 2;
-        walls.forEach(w => {
-            if(w.x + w.w > camera.x && w.x < camera.x + CANVAS_SIZE && w.y + w.h > camera.y && w.y < camera.y + CANVAS_SIZE) {
-                ctx.fillRect(w.x, w.y, w.w, w.h);
-                ctx.strokeRect(w.x, w.y, w.w, w.h);
-            }
-        });
-    } else {
-        ctx.fillStyle = '#666'; ctx.strokeStyle='#444'; ctx.lineWidth=1;
-        walls.forEach(w => {
-            if(w.x + w.w > camera.x && w.x < camera.x + CANVAS_SIZE && w.y + w.h > camera.y && w.y < camera.y + CANVAS_SIZE) {
-                ctx.fillRect(w.x, w.y, w.w, w.h);
-                ctx.strokeRect(w.x, w.y, w.w, w.h);
-            }
-        });
-    }
-
-items.forEach(i => i.draw());
-
-if(player.hp>0) {
-    player.draw();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    walls.forEach(w => { ctx.fillStyle = '#555'; ctx.fillRect(w.x, w.y, w.w, w.h); });
+    items.forEach(i => i.draw());
+    bullets.forEach(b => b.draw());
+    if (player) player.draw();
 }
 
-bots.forEach(b => { if(b.hp>0) b.draw(); });
-
-for (let id in otherPlayers) {
-
-    let p = otherPlayers[id];
-
-    ctx.save();
-    ctx.translate(p.x, p.y);
-    ctx.rotate(p.angle);
-
-    let img = sprites.blue[0];
-
-if(img && img.complete){
-    ctx.drawImage(img,-20,-20,40,40);
-}else{
-    ctx.fillStyle="cyan";
-    ctx.fillRect(-20,-20,40,40);
-}
-    ctx.fillStyle = "#999";
-    ctx.fillRect(0, -5, 30, 10);
-
-    ctx.restore();
-}
-
-bullets.forEach(b => b.draw());
-
-particles.forEach(p => p.draw());
-    if(window.laserBeam && window.laserBeam.life > 0) {
-        let b = window.laserBeam;
-        ctx.beginPath();
-        if(b.path.length>0) ctx.moveTo(b.path[0].x, b.path[0].y);
-        for(let i=1; i<b.path.length; i++) ctx.lineTo(b.path[i].x, b.path[i].y);
-        ctx.strokeStyle = b.color; ctx.lineWidth = Math.max(1, b.life/3);
-        ctx.shadowBlur=10; ctx.shadowColor=b.color;
-        ctx.stroke(); ctx.shadowBlur=0;
-        b.life--;
-    }
-
-    ctx.restore();
-
-    if(Date.now() < actualGameStart) {
-        let cd = Math.ceil((actualGameStart - Date.now())/1000);
-        ctx.fillStyle = "#f1c40f"; ctx.font = "bold 80px Consolas"; ctx.textAlign = "center";
-        ctx.fillText(cd, CANVAS_SIZE/2, CANVAS_SIZE/2);
-        ctx.lineWidth=3; ctx.strokeText(cd, CANVAS_SIZE/2, CANVAS_SIZE/2);
-    }
-    else if(currentMode === 'SURVIVAL' && gameRunning && player.hp > 0) {
-        let elapsed = Date.now() - actualGameStart;
-        let timeLeft = Math.max(0, 30 - Math.floor(elapsed/1000));
-        ctx.fillStyle = timeLeft <= 5 ? "#e74c3c" : "#fff";
-        ctx.font = "bold 40px Consolas";
-        ctx.textAlign = "center";
-        ctx.fillText(timeLeft, CANVAS_SIZE/2, 50);
-        ctx.lineWidth = 2; ctx.strokeText(timeLeft, CANVAS_SIZE/2, 50);
-    }
-}
-
-function loop() { 
-    update(); 
-    
-    // Gửi vị trí của mình lên server
-   if(currentMode === 'ONLINE' && player && player.hp>0){
-        socket.emit('playerMovement', {
-            x: player.x,
-            y: player.y,
-            angle: player.angle
-        });
-    }
-
-    draw(); 
-    requestAnimationFrame(loop); 
-} // Đóng ngoặc hàm loop ở đây
-
-// Các sự kiện điều khiển (Giữ nguyên của bạn)
+// --- EVENT LISTENERS ---
 window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 canvas.addEventListener('mousemove', e => {
-    let r = canvas.getBoundingClientRect();
-    mouse.x = e.clientX - r.left;
-    mouse.y = e.clientY - r.top;
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
 });
-canvas.addEventListener('mousedown', () => { 
-    if(gameRunning && player.hp > 0 && Date.now() >= actualGameStart) {
-        player.shoot(); 
-    }
-});
+canvas.addEventListener('mousedown', () => { if(player) player.shoot(); });
 
-// Chạy vòng lặp game
-loop();
-
-// Nhận đạn từ người chơi khác
-if(typeof socket !== 'undefined') {
-   socket.on('bulletFired', (data) => {
-    if(data.ownerId !== socket.id){
-        bullets.push(
-            new Bullet(
-                data.x,
-                data.y,
-                data.angle,
-                data.type,
-                otherPlayers[data.ownerId]
-            )
-        );
-    }
-});
+function showMainMenu() {
+    gameRunning = false;
+    ui.mainMenu.classList.remove('hidden');
 }
+
+function restartGame() { startGame(currentMode); }
+
 </script>
 </body>
 </html>
